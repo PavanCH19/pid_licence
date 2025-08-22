@@ -1,0 +1,71 @@
+service: CFSLicencing
+frameworkVersion: '>=3.0.0 <5.0.0'
+
+custom:
+  region: ${opt:region, 'ap-south-1'}
+  stage: ${opt:stage, 'dev'}
+  accountId: ${aws:accountId}
+  tableName: PIDS_Customers
+  serverless-offline:
+    httpPort: 4000
+    noPrependStageInUrl: true
+  dotenv:
+    exclude:
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_REGION
+
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${self:custom.stage}
+  region: ${self:custom.region}
+  memorySize: 512
+  timeout: 29
+  environment:
+    NODE_ENV: ${env:NODE_ENV, 'production'}
+    REGION: ${env:REGION, self:custom.region}
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:DescribeTable
+          Resource:
+            - arn:aws:dynamodb:${self:custom.region}:${self:custom.accountId}:table/${self:custom.tableName}
+            - arn:aws:dynamodb:${self:custom.region}:${self:custom.accountId}:table/${self:custom.tableName}/index/*
+        - Effect: "Allow"
+          Action:
+            - secretsmanager:GetSecretValue
+            - secretsmanager:PutSecretValue
+            - secretsmanager:CreateSecret
+            - secretsmanager:DescribeSecret
+          Resource: '*'
+        - Effect: "Allow"
+          Action:
+            - ses:SendRawEmail
+          Resource: '*'
+
+functions:
+  app:
+    handler: src/app.handler
+    events:
+      - httpApi: '*'
+
+package:
+  patterns:
+    - "!**/*.md"
+    - "!**/*.map"
+    - "!test/**"
+    - "src/**"
+    - "package.json"
+    - "package-lock.json"
